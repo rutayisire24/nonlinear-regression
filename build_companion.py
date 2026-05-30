@@ -354,6 +354,7 @@ SECTIONS = [
                 "start, then check where it ended up."}]},
 
     {"id": "m1", "title": "Model 1 — Exponential decay (real auto data)",
+     "icon": "🍵",
      "eli5": "Picture a <b>hot cup of tea</b> left on the table. It cools <b>fast</b> while it's "
              "piping hot, then slower and slower as it nears room temperature — and it never gets "
              "colder than the room. That \"quick at first, then flattening toward a floor\" shape "
@@ -424,6 +425,7 @@ SECTIONS = [
                 "drug half-life."}]},
 
     {"id": "m2", "title": "Model 2 — Logistic growth (an S-curve)",
+     "icon": "🗣️",
      "eli5": "Picture <b>a juicy rumour spreading through a village</b>. At first only one or two "
              "people know, so it crawls. Then everyone who hears it tells two friends and it "
              "<b>explodes</b>. Finally it slows again — because almost everyone has already heard it. "
@@ -472,6 +474,7 @@ SECTIONS = [
          "warn": "Forecasting far past your data assumes the same curve keeps holding — be cautious."}]},
 
     {"id": "m3", "title": "Model 3 — Michaelis–Menten (saturating dose–response)",
+     "icon": "🍽️",
      "eli5": "Picture <b>eating when you're hungry</b>. The first few bites satisfy you enormously; "
              "as you fill up each extra bite does a little less; eventually you're <b>completely "
              "full</b> and more food adds nothing. The response climbs, then <b>saturates</b> at a "
@@ -513,6 +516,7 @@ SECTIONS = [
                   "the whole fit — a data-entry error or a genuinely unusual subject."}]},
 
     {"id": "m4", "title": "Model 4 — Exponential growth: Ebola viral load & the Gulu 2000 outbreak",
+     "icon": "💰",
      "eli5": "Picture <b>money in a savings account earning compound interest</b>, or a single "
              "<b>WhatsApp message forwarded on and on</b>: one becomes two, two become four, four "
              "become eight. Early on nothing looks alarming — then it <b>rockets</b>. The number "
@@ -646,6 +650,7 @@ SECTIONS = [
                 "starting values."}]},
 
     {"id": "exercise", "title": "Hands-on exercise — infection rate vs bed occupancy",
+     "icon": "🅿️",
      "eli5": "Picture <b>a car park filling up</b>. While it's half-empty, finding a space is easy "
              "and stress stays low. Past a tipping point — say 75% full — it suddenly gets hard, "
              "tempers fray, and it climbs steeply toward gridlock. A hospital ward behaves the same "
@@ -801,8 +806,11 @@ def render_block(b):
 def render_section(s):
     intro = [f'<h2>{s["title"]}</h2>']
     if s.get("eli5"):
-        intro.append('<div class="eli5"><span class="tag">🧩 Everyday version</span>'
-                     f'<div>{s["eli5"]}</div></div>')
+        ico = s.get("icon")
+        ico_html = f'<div class="eli5-ico" aria-hidden="true">{ico}</div>' if ico else ''
+        intro.append(f'<div class="eli5">{ico_html}'
+                     '<div class="eli5-body"><span class="tag">🧩 Everyday version</span>'
+                     f'<div>{s["eli5"]}</div></div></div>')
     if s.get("lead"):
         intro.append(f'<p class="lead">{s["lead"]}</p>')
     if s.get("html"):
@@ -828,10 +836,10 @@ def render_glossary():
 
 
 CSS = """
-:root{--ink:#1f2328;--muted:#6a737d;--line:#d0d7de;--bg:#fff;--code-bg:#f6f8fa;
+:root{--ink:#1f2328;--muted:#4f5760;--line:#d0d7de;--bg:#fff;--code-bg:#f6f8fa;
 --term-bg:#0d1117;--term-ink:#c9d1d9;--means:#0969da;--means-bg:#ddf4ff;--say:#1a7f37;
---say-bg:#dafbe1;--warn:#9a6700;--warn-bg:#fff8c5;--clin:#0a7d77;--clin-bg:#d7f5f2;
---ebola:#bc4c00;--ebola-bg:#fff1e5;--read:#6639ba;--read-bg:#efeafc;--run:#1a7f37;
+--say-bg:#dafbe1;--warn:#9a6700;--warn-bg:#fff8c5;--clin:#bc4c00;--clin-bg:#fff1e5;
+--ebola:#bc4c00;--ebola-bg:#fff1e5;--read:#0969da;--read-bg:#ddf4ff;--run:#1a7f37;
 --eli:#bf3989;--eli-bg:#fff0f7;}
 *{box-sizing:border-box;}
 body{margin:0;font:16px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);}
@@ -853,7 +861,7 @@ h2{font-size:22px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-
 .block{border:1px solid var(--line);border-radius:10px;padding:16px;margin:18px 0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04);}
 .label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin:14px 0 4px;}
 .label:first-child{margin-top:0;}
-pre{margin:0;padding:12px 14px;border-radius:8px;overflow-x:auto;font:12.5px/1.5 "SF Mono",Consolas,Menlo,monospace;}
+pre{margin:0;padding:12px 14px;border-radius:8px;overflow-x:auto;font:15px/1.5 "SF Mono",Consolas,Menlo,monospace;}
 pre.code{background:var(--code-bg);border:1px solid var(--line);color:var(--ink);}
 pre.output{background:var(--term-bg);color:var(--term-ink);}
 .plot-img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;display:block;}
@@ -866,19 +874,33 @@ pre.output{background:var(--term-bg);color:var(--term-ink);}
 .clin{background:var(--clin-bg);border-left:4px solid var(--clin);} .clin .tag{color:var(--clin);}
 .ebola{background:var(--ebola-bg);border-left:4px solid var(--ebola);} .ebola .tag{color:var(--ebola);}
 .read{background:var(--read-bg);border-left:4px solid var(--read);} .read .tag{color:var(--read);}
-.eli5{background:var(--eli-bg);border:1px solid var(--eli);border-left:5px solid var(--eli);
-  border-radius:8px;padding:13px 17px;margin:8px 0 14px;font-size:15.5px;line-height:1.55;}
+.eli5{display:flex;align-items:center;gap:16px;background:var(--eli-bg);border:1px solid var(--eli);
+  border-left:5px solid var(--eli);border-radius:8px;padding:13px 17px;margin:8px 0 14px;
+  font-size:15.5px;line-height:1.55;}
+.eli5-ico{flex:0 0 auto;width:66px;height:66px;display:flex;align-items:center;justify-content:center;
+  font-size:42px;line-height:1;background:#fff;border:1px solid var(--eli);border-radius:14px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.eli5-body{min-width:0;}
 .eli5 .tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.02em;
   color:var(--eli);margin-bottom:5px;}
 .eli5 b{color:#8a2b62;}
+@media (max-width:520px){.eli5{flex-direction:column;align-items:flex-start;}}
 .code-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 4px;}
 .code-head .label{margin:0;}
 .run-btn{font:600 12px/1 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;cursor:pointer;
   border:1px solid var(--run);background:var(--run);color:#fff;border-radius:6px;padding:6px 12px;
-  white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:background .15s;}
+  white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:background .15s;
+  animation:runthrob 1.7s ease-in-out infinite;}
 .run-btn:hover{background:#15692d;border-color:#15692d;}
 .run-btn:disabled{opacity:.6;cursor:progress;}
+/* stop the throb once it's been clicked, while hovered, or mid-run */
+.run-btn.ran,.run-btn:hover,.run-btn:disabled{animation:none;box-shadow:none;}
 .run-btn .ico{font-size:10px;line-height:1;}
+@keyframes runthrob{
+  0%{box-shadow:0 0 0 0 rgba(26,127,55,.55);transform:scale(1);}
+  70%{box-shadow:0 0 0 9px rgba(26,127,55,0);transform:scale(1.04);}
+  100%{box-shadow:0 0 0 0 rgba(26,127,55,0);transform:scale(1);}}
+@media (prefers-reduced-motion:reduce){.run-btn{animation:none;}}
 .result[hidden]{display:none;}
 .result.revealed{animation:revealfade .35s ease;}
 @keyframes revealfade{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
@@ -904,15 +926,19 @@ body.presenting main{padding:0;min-height:100vh;}
 body.presenting section{margin:0;}
 body.presenting .slide{display:none;}
 body.presenting .slide.current{display:flex;flex-direction:column;justify-content:flex-start;
-  position:fixed;inset:0;z-index:50;background:var(--bg);padding:5vh 7vw 13vh;overflow:auto;font-size:18px;}
+  position:fixed;inset:0;z-index:50;background:var(--bg);padding:5vh 7vw 13vh;overflow:auto;font-size:20px;}
 body.presenting .slide.intro.current{justify-content:safe center;}
 body.presenting .slide.current > *{max-width:1040px;width:100%;margin-left:auto;margin-right:auto;}
 body.presenting .slide.current h2{font-size:30px;border:none;padding:0;}
 body.presenting .block.slide.current{border:none;box-shadow:none;border-radius:0;background:transparent;padding:0;}
 body.presenting .plot-img{max-height:48vh;width:auto;margin:8px auto;}
-code{background:var(--code-bg);padding:1px 5px;border-radius:4px;font:12.5px "SF Mono",Consolas,monospace;}
+body.presenting .slide.current pre{font-size:16px;line-height:1.55;}
+body.presenting .slide.current .callout{font-size:17px;}
+body.presenting .slide.current table.grid{font-size:16px;}
+body.presenting .slide.current code{font-size:15px;}
+code{background:var(--code-bg);padding:1px 5px;border-radius:4px;font:14px "SF Mono",Consolas,monospace;}
 .callout code{background:rgba(0,0,0,.06);}
-table.grid{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0;}
+table.grid{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0;}
 table.grid th,table.grid td{text-align:left;padding:7px 9px;border:1px solid var(--line);vertical-align:top;}
 table.grid th{background:var(--code-bg);}
 .callout table.grid{margin:4px 0 0;background:rgba(255,255,255,.55);}
@@ -970,6 +996,7 @@ function runBlock(btn){
   if(!res){ return; }
   if(res.hasAttribute('hidden')){
     btn.disabled = true;
+    btn.classList.add('ran');
     btn.innerHTML = '<span class="ico">&#9203;</span> running\\u2026';
     setTimeout(function(){
       res.removeAttribute('hidden');
@@ -990,7 +1017,7 @@ function toggleAll(){
     var btn = b.querySelector('.run-btn');
     if(reveal){
       res.removeAttribute('hidden'); res.classList.add('revealed');
-      if(btn){ btn.innerHTML = '<span class="ico">&#10003;</span> Ran \\u00b7 re-run'; }
+      if(btn){ btn.classList.add('ran'); btn.innerHTML = '<span class="ico">&#10003;</span> Ran \\u00b7 re-run'; }
     } else {
       res.setAttribute('hidden',''); res.classList.remove('revealed');
       if(btn){ btn.innerHTML = '<span class="ico">&#9654;</span> Run'; }
@@ -1035,6 +1062,8 @@ function exitPresent(){
   SLIDES.forEach(function(s){ s.classList.remove('current'); });
   document.removeEventListener('keydown', presentKeys);
 }
+/* open straight into slides when the URL ends in #present */
+if(location.hash === '#present'){ enterPresent(); }
 </script>"""
 
 
