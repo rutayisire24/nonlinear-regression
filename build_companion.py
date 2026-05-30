@@ -48,25 +48,29 @@ MPG = auto["mpg"].to_numpy(float)
 
 rng = np.random.default_rng(2026)
 
-# Logistic — life expectancy 1900-2000 (3-param, as in the deck)
+# Logistic, life expectancy 1900-2000 (3-param, as in the deck)
 YEAR = np.arange(1900, 2001)
 LE = f_logan(YEAR, 79.0, -0.033, 1890) + rng.normal(0, 0.7, YEAR.size)
 
-# Michaelis-Menten — simulated dose-response (true Vmax=90, Km=25)
+# Michaelis-Menten, simulated dose-response (true Vmax=90, Km=25)
 DOSE = np.linspace(0, 100, 40)
 RESP = f_mm(DOSE, 90, 25) + rng.normal(0, 4, DOSE.size)
 
-# Exponential growth — Ebola viral load in an untreated patient (within-host)
+# Exponential growth, Ebola viral load in an untreated patient (within-host)
 VDAY = np.arange(1, 21)
 VL = f_exp(VDAY, 100, 0.3) + rng.normal(0, 200, VDAY.size)
 VL = np.clip(VL, 1, None)
 
-# Exponential growth — Gulu 2000 early outbreak (population), per the brief
-GDAY = np.arange(1, 51)
-GCASES = 3 * np.exp(0.046 * GDAY) + rng.normal(0, 2, GDAY.size)
-GCASES = np.round(np.clip(GCASES, 0, None))
+# Exponential growth, Gulu 2000 outbreak: 30 days of history plus a 30-day forecast
+B_RATE = np.log(2) / 15.6                     # 15.6-day doubling baked into the truth
+GDAY   = np.arange(-30, 31)                   # day 0 = "today"; -30..0 observed, 0..30 forecast
+GTRUE  = 900 * np.exp(B_RATE * GDAY)          # the unchecked exponential path
+GHIST  = np.round(np.clip(GTRUE + rng.normal(0, 20, GDAY.size), 0, None))
+GFORE  = np.round(GTRUE + rng.normal(0, 50, GDAY.size))
+GCOMB  = np.where(GDAY > 0, GFORE, GHIST)     # the combined series we actually fit
+GSHIFT = GDAY + 30                            # shift time so the search starts clean
 
-# Logistic — hands-on exercise: infection rate vs occupancy
+# Logistic, hands-on exercise: infection rate vs occupancy
 #   (sign corrected so the rate RISES with occupancy, matching the narrative)
 OCC = 40 + np.arange(30) * (95 - 40) / 29
 INF = f_loginc(OCC, 12, 0.30, 75) + rng.normal(0, 0.5, OCC.size)
@@ -123,7 +127,7 @@ FIT_DECAY = run_fit(f_exp, W, MPG, [40, -0.0005], ["a", "b"])
 FIT_LOG   = run_fit(f_logan, YEAR, LE, [79, -0.03, 1890], ["asym", "rate", "inflect"])
 FIT_MM    = run_fit(f_mm, DOSE, RESP, [90, 25], ["vmax", "km"])
 FIT_VL    = run_fit(f_exp, VDAY, VL, [100, 0.3], ["a", "b"])
-FIT_GULU  = run_fit(f_exp, GDAY, GCASES, [3, 0.05], ["a", "b"])
+FIT_GULU  = run_fit(f_exp, GSHIFT, GCOMB, [23, 0.04], ["a", "b"])
 FIT_EX    = run_fit(f_loginc, OCC, INF, [12, 0.3, 75], ["asym", "rate_g", "inflect"])
 
 # Derived quantities (real) -------------------------------------------------
@@ -196,7 +200,7 @@ def diag_pair(fit, title):
 
 IMG_DECAY = scatter_fit(W, MPG, FIT_DECAY, f_exp, "Weight (lbs)", "MPG",
                         "Exponential decay: MPG vs weight (real auto data)")
-IMG_DECAY_DIAG = diag_pair(FIT_DECAY, "Exponential decay — residual diagnostics")
+IMG_DECAY_DIAG = diag_pair(FIT_DECAY, "Exponential decay, residual diagnostics")
 
 # logistic with forecast point
 def img_logistic():
@@ -233,9 +237,28 @@ def img_viral():
     return uri(fig)
 IMG_VL = img_viral()
 
-IMG_GULU = scatter_fit(GDAY, GCASES, FIT_GULU, f_exp, "Days from onset (Day 1 = Aug 30)",
-                       "Estimated cumulative cases",
-                       "Gulu 2000 — early exponential phase", color=RED)
+def img_gulu():
+    fig, ax = plt.subplots(figsize=(6.8, 4.2))
+    NAVY, CRAN = "#1a476f", "#c10534"
+    hist, fore = GDAY <= 0, GDAY >= 0
+    xs_h, xs_f = np.linspace(-30, 0, 150), np.linspace(0, 30, 150)
+    ax.scatter(GDAY[hist], GHIST[hist], s=26, color=NAVY, zorder=3, label="Observed history")
+    ax.plot(xs_h, 900 * np.exp(B_RATE * xs_h), color=NAVY, lw=2.4, label="Historical trend")
+    ax.scatter(GDAY[fore], GFORE[fore], s=24, color=CRAN, marker="^", zorder=3,
+               label="Projected forecast")
+    ax.plot(xs_f, 900 * np.exp(B_RATE * xs_f), color=CRAN, lw=2.8, ls="--",
+            label="Unchecked exponential path")
+    ax.axvline(0, color="#9aa0a6", ls=":", lw=1.6)
+    ax.set_xticks(np.arange(-30, 31, 10))
+    ax.set_ylim(0, 3500)
+    ax.set(xlabel="Days (relative to today, Day 0)",
+           ylabel="Cumulative confirmed / suspected cases")
+    fig.suptitle("Ebola case trajectory & 30-day forward forecast", fontsize=12, y=0.99)
+    ax.set_title(f"Unchecked outbreak  |  doubling time ≈ {dt_g:.1f} days",
+                 fontsize=9.5, color="#555")
+    ax.legend(fontsize=8.5, loc="upper left")
+    return uri(fig)
+IMG_GULU = img_gulu()
 
 
 def img_compare():
@@ -338,7 +361,7 @@ SECTIONS = [
 
     {"id": "method", "title": "The rhythm: plot → guess → fit → check",
      "lead": "Whether it's a drug clearing from blood or an outbreak's case count climbing, "
-             "biological change <i>bends</i> — and non-linear models aren't solved by a formula, "
+             "biological change <i>bends</i>, and non-linear models aren't solved by a formula, "
              "they're <b>searched</b> for. Your job is to start the search well and check where it "
              "landed.",
      "blocks": [{
@@ -348,21 +371,24 @@ SECTIONS = [
                   "* 4. CHECK  did it converge? are the residuals clean?",
          "means": "Linear regression lets you skip to the fit. Non-linear regression does "
                   "<b>not</b>: Stata improves your starting guess by trial-and-error until it "
-                  "converges. A bad guess can wander off forever — so we always <b>plot first, "
+                  "converges. A bad guess can wander off forever, so we always <b>plot first, "
                   "guess from the plot, fit, then check</b>.",
          "say": "Non-linear models are found, not solved. Give the search a sensible place to "
                 "start, then check where it ended up."}]},
 
-    {"id": "m1", "title": "Model 1 — Exponential decay (real auto data)",
+    {"id": "m1", "title": "Model 1: Exponential decay (real auto data)",
      "icon": "🍵",
+     "why": "<b>The model:</b> a curve that falls fast, then flattens toward a floor it never "
+            "crosses. <b>Why it matters:</b> it is exactly how a drug clears from the blood, so a "
+            "single rate gives you the half-life a clinician doses by.",
      "eli5": "Picture a <b>hot cup of tea</b> left on the table. It cools <b>fast</b> while it's "
-             "piping hot, then slower and slower as it nears room temperature — and it never gets "
+             "piping hot, then slower and slower as it nears room temperature, and it never gets "
              "colder than the room. That \"quick at first, then flattening toward a floor\" shape "
              "<b>is</b> exponential decay. A drug clearing from the blood, a fading bruise, a phone "
-             "battery draining — all the same curve. Today the stand-in is a car's fuel economy "
+             "battery draining, all the same curve. Today the stand-in is a car's fuel economy "
              "falling as the car gets heavier.",
      "lead": "Dataset: the public <code>auto-mpg.csv</code> (398 cars). MPG falls steeply for light "
-             "cars then flattens — the same shape as a drug concentration falling as body mass "
+             "cars then flattens, the same shape as a drug concentration falling as body mass "
              "rises. (Your do-file uses Stata's 74-car <code>sysuse auto</code>: same shape, "
              "smaller-magnitude coefficients.)",
      "blocks": [
@@ -378,23 +404,23 @@ SECTIONS = [
                   "<b>b</b> = decay rate (negative ⇒ MPG falls as weight rises).",
          "say": "See the curve bend? A line would over-predict the heavy cars. That bend is why we "
                 "go non-linear."},
-        {"stata": "* starting values are a rough GUESS off the plot — the search refines them\n"
+        {"stata": "* starting values are a rough GUESS off the plot, the search refines them\n"
                   "nl (mpg = {a} * exp({b} * weight)), initial(a 40 b -0.0005)",
          "output": fit_table("mpg", FIT_DECAY),
-         "read": (f"First time reading an <code>nl</code> table — take it column by column. Each row "
+         "read": (f"First time reading an <code>nl</code> table, take it column by column. Each row "
                   f"is one parameter the search found. <b>Coef.</b> is the estimate: "
                   f"<b>a ≈ {FIT_DECAY['popt'][0]:.1f}</b> (the ceiling MPG) and "
                   f"<b>b ≈ {b_dec:.5f}</b> (negative ⇒ decay). <b>Std. err.</b> is how much that "
                   f"estimate would wobble in a fresh sample of cars. <b>t</b> is Coef.÷Std.err., and "
                   f"<b>P&gt;|t|</b> turns that into the chance of seeing this if the true value were "
-                  f"zero — both read <b>0.000</b>, so neither is a fluke. The "
+                  f"zero, both read <b>0.000</b>, so neither is a fluke. The "
                   f"<b>[95% conf. interval]</b> is the plausible range for the true value, and "
-                  f"neither one crosses 0. So: read just two numbers — a and b — and you've read the "
+                  f"neither one crosses 0. So: read just two numbers, a and b, and you've read the "
                   f"whole curve."),
          "means": f"This is a <b>real least-squares fit</b>. <b>a ≈ {FIT_DECAY['popt'][0]:.1f}</b> "
                   f"(ceiling MPG) and <b>b ≈ {b_dec:.5f}</b> (negative ⇒ decay). Both p &lt; 0.001, "
                   f"so neither is plausibly zero. Add <code>vce(robust)</code> for robust SEs when "
-                  f"the residual spread isn't even — the coefficients don't move, only the error "
+                  f"the residual spread isn't even, the coefficients don't move, only the error "
                   f"bars do.",
          "clin": clin_table([
              ("a", f"{FIT_DECAY['popt'][0]:.1f} MPG", f"({FIT_DECAY['lo'][0]:.1f}, {FIT_DECAY['hi'][0]:.1f})",
@@ -403,7 +429,7 @@ SECTIONS = [
               f"Each +1000 lb lowers MPG by ~{pct_per_1000:.0f}%")]),
          "say": "a is the ceiling, b is the decay rate. The clinical sentence: every extra 1000 lb "
                 f"cuts MPG by about {pct_per_1000:.0f}%.",
-         "warn": "If Stata prints “convergence not achieved”, the numbers are meaningless — fix "
+         "warn": "If Stata prints “convergence not achieved”, the numbers are meaningless, fix "
                  "<code>initial()</code> and refit."},
         {"stata": "predict fitted_exp, yhat\npredict resid_exp, resid\n"
                   "rvfplot, yline(0)\nqnorm resid_exp\nhistogram resid_exp, normal",
@@ -417,22 +443,25 @@ SECTIONS = [
          "output": fit_simple_row("half_life", half_life, hl_lo, hl_hi),
          "read": (f"One line, one number: <b>{half_life:.0f}</b> lbs, with its 95% CI in brackets. "
                   f"That's the weight gain that <b>halves</b> MPG. Stata carried the uncertainty in b "
-                  f"through into a correct interval for you — no by-hand error propagation."),
+                  f"through into a correct interval for you, no by-hand error propagation."),
          "means": f"<code>nlcom</code> turns parameters into a clinically intuitive quantity with a "
                   f"correct CI. <b>Half-life = ln(2)/(−b) ≈ {half_life:.0f} lbs</b>: every extra "
-                  f"~{half_life:.0f} lb <b>halves</b> the MPG — exactly like a drug half-life.",
+                  f"~{half_life:.0f} lb <b>halves</b> the MPG, exactly like a drug half-life.",
          "say": "The number a clinician feels: how much change halves the outcome. Same maths as "
                 "drug half-life."}]},
 
-    {"id": "m2", "title": "Model 2 — Logistic growth (an S-curve)",
+    {"id": "m2", "title": "Model 2: Logistic growth (an S-curve)",
      "icon": "🗣️",
+     "why": "<b>The model:</b> the S-curve, slow then fast then a ceiling. <b>Why it matters:</b> "
+            "it is the shape of an outbreak's running case count and of any growth that runs into a "
+            "limit, so it pins down both the ceiling and the tipping-point.",
      "eli5": "Picture <b>a juicy rumour spreading through a village</b>. At first only one or two "
              "people know, so it crawls. Then everyone who hears it tells two friends and it "
-             "<b>explodes</b>. Finally it slows again — because almost everyone has already heard it. "
+             "<b>explodes</b>. Finally it slows again, because almost everyone has already heard it. "
              "<b>Slow → fast → plateau</b>: that S-shape is logistic growth. The very same curve "
              "describes life expectancy rising toward a ceiling, a crop growing, or an outbreak's "
              "running case count.",
-     "lead": "Dataset: life expectancy, 1900–2000. The S-shape — slow, then fast, then a ceiling — "
+     "lead": "Dataset: life expectancy, 1900–2000. The S-shape, slow, then fast, then a ceiling, "
              "is the fingerprint of logistic growth (and, as we'll see, of an epidemic curve).",
      "blocks": [
         {"stata": "sysuse uslifeexp, clear\nlist year le in 1/10",
@@ -448,41 +477,44 @@ SECTIONS = [
          "read": (f"Read it the same way, now with three rows. <b>asym ≈ {FIT_LOG['popt'][0]:.1f}</b> "
                   f"= the ceiling the curve climbs toward; <b>inflect ≈ {FIT_LOG['popt'][2]:.0f}</b> "
                   f"= the year of steepest change; <b>rate</b> = how sharp the bend is. Check the "
-                  f"<b>P&gt;|t|</b> and CI columns exactly as before — all three are firmly pinned "
+                  f"<b>P&gt;|t|</b> and CI columns exactly as before, all three are firmly pinned "
                   f"down, so the S-curve is a real description of the data, not wishful drawing."),
          "means": f"Three meaningful parameters, really fitted: <b>asym ≈ {FIT_LOG['popt'][0]:.1f}</b> "
                   f"is the ceiling (max life expectancy the curve approaches); <b>inflect ≈ "
                   f"{FIT_LOG['popt'][2]:.0f}</b> is the year of fastest growth; <b>rate</b> sets the "
                   f"steepness. Here the inflection sits just before our window, so 1900–2000 is the "
-                  f"<i>decelerating upper arm</i> of the S — gains slowing as we near the ceiling.",
+                  f"<i>decelerating upper arm</i> of the S, gains slowing as we near the ceiling.",
          "say": "asym is the ceiling, inflect is the tipping-point year, rate is the steepness. "
                 "Three numbers, three clear meanings."},
         {"stata": "predict fitted_log, yhat\n"
                   "local asym=_b[/asym]\nlocal rate=_b[/rate]\nlocal inflect=_b[/inflect]\n"
                   'display "Predicted LE 2020: " `asym\'/(1+exp(`rate\'*(2020-`inflect\')))',
          "output": f"Predicted LE 2020: {le2020:.2f}",
-         "read": (f"This line isn't a coefficient — it's a <b>prediction</b>. We fed the fitted curve "
+         "read": (f"This line isn't a coefficient, it's a <b>prediction</b>. We fed the fitted curve "
                   f"a year it never saw (2020) and it returned <b>{le2020:.1f} years</b>, sitting "
                   f"just under the ceiling because the S has all but flattened. That is what a model "
                   f"is <i>for</i>: answering beyond the data you measured."),
          "means": f"Plug the fitted parameters into the formula for 2020 to <b>forecast</b> ≈ "
-                  f"<b>{le2020:.1f} years</b> — close to the ceiling, because the curve has nearly "
+                  f"<b>{le2020:.1f} years</b>, close to the ceiling, because the curve has nearly "
                   f"flattened.",
          "ebola": "The same S-curve describes an <b>outbreak's cumulative case count</b>: a slow "
                   "lag, an explosive surge, then a plateau as control measures bite and susceptibles "
                   "run out. The logistic is the natural model for an epidemic curve.",
-         "warn": "Forecasting far past your data assumes the same curve keeps holding — be cautious."}]},
+         "warn": "Forecasting far past your data assumes the same curve keeps holding, be cautious."}]},
 
-    {"id": "m3", "title": "Model 3 — Michaelis–Menten (saturating dose–response)",
-     "icon": "🍽️",
-     "eli5": "Picture <b>eating when you're hungry</b>. The first few bites satisfy you enormously; "
-             "as you fill up each extra bite does a little less; eventually you're <b>completely "
-             "full</b> and more food adds nothing. The response climbs, then <b>saturates</b> at a "
-             "ceiling. And the amount of food that gets you <b>halfway to full</b> is exactly the "
-             "idea behind a drug's EC50 — the dose that delivers half of its biggest possible "
-             "effect.",
+    {"id": "m3", "title": "Model 3: Michaelis–Menten (saturating dose–response)",
+     "icon": "🧽",
+     "why": "<b>The model:</b> response climbs as you raise the dose, then <b>saturates</b> at a "
+            "maximum it cannot beat. <b>Why it matters:</b> it hands you the two numbers a "
+            "pharmacologist lives by, the most a drug can do (V<sub>max</sub>) and the dose that "
+            "gets you halfway there (the EC50, its potency).",
+     "eli5": "Picture a <b>dry sponge dropped in water</b>. At first it drinks greedily; as it "
+             "fills, each second adds less; once it is <b>soaked</b> it holds no more, however long "
+             "you leave it in. The response rises fast, then <b>levels off</b> at a ceiling. The "
+             "amount of water that gets the sponge <b>halfway full</b> is the same idea as a drug's "
+             "EC50, the dose that delivers half of its biggest possible effect.",
      "lead": "Simulated dose–response, so we know the truth (true V<sub>max</sub>=90, K<sub>m</sub>=25) "
-             "and can grade the fit. Clinical analogy: receptor binding — response rises then saturates.",
+             "and can grade the fit. Clinical analogy: receptor binding, response rises then saturates.",
      "blocks": [
         {"stata": "clear\nset seed 12345\nset obs 40\n"
                   "gen dose = (_n-1)*(100/39)\n"
@@ -495,11 +527,11 @@ SECTIONS = [
          "read": (f"Two rows. <b>V<sub>max</sub> ≈ {FIT_MM['popt'][0]:.1f}</b> = the saturating "
                   f"maximum response; <b>K<sub>m</sub> ≈ {FIT_MM['popt'][1]:.1f}</b> = the dose that "
                   f"gets you to <b>half</b> of that maximum (the EC50). Here's the honest test: "
-                  f"because this data is simulated we <i>know</i> the truth was 90 and 25 — and the "
+                  f"because this data is simulated we <i>know</i> the truth was 90 and 25, and the "
                   f"fit lands on both. That agreement is your proof the method recovers reality, not "
                   f"just any curve."),
          "means": f"<b>V<sub>max</sub> ≈ {FIT_MM['popt'][0]:.1f}</b> is the saturating maximum "
-                  f"response; <b>K<sub>m</sub> ≈ {FIT_MM['popt'][1]:.1f}</b> is the EC50 — the dose "
+                  f"response; <b>K<sub>m</sub> ≈ {FIT_MM['popt'][1]:.1f}</b> is the EC50, the dose "
                   f"giving <b>half</b> of V<sub>max</sub>. Both land on the true values (90, 25), so "
                   f"the model works.",
          "clin": clin_table([
@@ -508,22 +540,25 @@ SECTIONS = [
              ("Km (EC50)", f"{FIT_MM['popt'][1]:.1f} mg/kg",
               f"({FIT_MM['lo'][1]:.1f}, {FIT_MM['hi'][1]:.1f})", "Dose for 50% of maximum effect")]),
          "say": f"Vmax is the most the drug can do; the EC50 of ~{FIT_MM['popt'][1]:.0f} mg/kg is the "
-                f"potency — the dose that gets you halfway there."},
+                f"potency, the dose that gets you halfway there."},
         {"stata": "predict fitted_mm, yhat\npredict resid_mm, resid\n"
                   "rvfplot, yline(0)\npredict cooksd_mm, cooksd\nscatter cooksd_mm _n, yline(4/40)",
          "means": "After fitting, overlay the fitted curve, check residuals-vs-fitted for pattern, "
                   "and use <b>Cook's distance</b> (cut-off 4/n) to flag any single point that pulls "
-                  "the whole fit — a data-entry error or a genuinely unusual subject."}]},
+                  "the whole fit, a data-entry error or a genuinely unusual subject."}]},
 
-    {"id": "m4", "title": "Model 4 — Exponential growth: Ebola viral load & the Gulu 2000 outbreak",
+    {"id": "m4", "title": "Model 4: Exponential growth (Ebola viral load & the Gulu 2000 outbreak)",
      "icon": "💰",
+     "why": "<b>The model:</b> exponential growth, doubling again and again. <b>Why it matters:</b> "
+            "it is how an untreated viral load and an outbreak's early cases both climb, so the "
+            "doubling time tells you how many days you have before the count explodes.",
      "eli5": "Picture <b>money in a savings account earning compound interest</b>, or a single "
              "<b>WhatsApp message forwarded on and on</b>: one becomes two, two become four, four "
-             "become eight. Early on nothing looks alarming — then it <b>rockets</b>. The number "
+             "become eight. Early on nothing looks alarming, then it <b>rockets</b>. The number "
              "that matters is the <b>doubling time</b>: how long until it's twice as big. Untreated "
              "viral load in a patient, and an outbreak's early case count, both grow exactly this "
-             "way — which is why a few days' delay costs so much.",
-     "lead": "Same exponential family as Model 1, but with a <b>positive</b> rate — so instead of "
+             "way, which is why a few days' delay costs so much.",
+     "lead": "Same exponential family as Model 1, but with a <b>positive</b> rate, so instead of "
              "decay we get explosive growth. We look at it at two scales: inside one patient, and "
              "across a population.",
      "blocks": [
@@ -533,53 +568,76 @@ SECTIONS = [
                   "nl (viral_load = {a}*exp({b}*day)), initial(a 100 b 0.3)",
          "output": fit_table("viral_load", FIT_VL),
          "img": IMG_VL,
-         "read": (f"The same two-parameter exponential as Model 1 — but read the <b>sign of b</b>. "
+         "read": (f"The same two-parameter exponential as Model 1, but read the <b>sign of b</b>. "
                   f"Here <b>b ≈ {b_vl:.3f}</b> is <b>positive</b>: growth, not decay. "
                   f"<b>a ≈ {FIT_VL['popt'][0]:.0f}</b> is the starting load on day 1. One positive "
-                  f"number is the whole alarm — the viral load is climbing, and climbing faster every "
+                  f"number is the whole alarm, the viral load is climbing, and climbing faster every "
                   f"day."),
          "means": f"<b>a ≈ {FIT_VL['popt'][0]:.0f}</b> is the starting load; <b>b ≈ {b_vl:.3f}</b> "
                   f"the daily growth rate. On the <b>log scale</b> (right) the curve becomes a "
-                  f"straight line — the signature of exponential growth.",
+                  f"straight line, the signature of exponential growth.",
          "say": "Inside an untreated patient, Ebola viral load climbs exponentially in the first "
-                "days — which is exactly why early treatment matters."},
+                "days, which is exactly why early treatment matters."},
         {"stata": "nlcom (doubling_time: ln(2) / _b[/b])",
          "output": fit_simple_row("doubling_time", dt_vl, dtvl_lo, dtvl_hi),
-         "read": (f"Mirror of the half-life output. One number — <b>{dt_vl:.1f} days</b>, with a CI "
-                  f"— the time for the load to <b>double</b>. This is the line a clinician acts on at "
+         "read": (f"Mirror of the half-life output. One number, <b>{dt_vl:.1f} days</b>, with a CI "
+                  f",  the time for the load to <b>double</b>. This is the line a clinician acts on at "
                   f"the bedside, not the raw rate b above it."),
          "means": f"The mirror image of half-life. <b>Doubling time = ln(2)/b ≈ {dt_vl:.1f} days</b> "
-                  f"in this within-patient curve — the clinically meaningful translation of the raw "
+                  f"in this within-patient curve, the clinically meaningful translation of the raw "
                   f"rate.",
          "ebola": "A growth rate of 0.3 is abstract; <b>“doubles every couple of days”</b> is what a "
                   "clinician actually feels at the bedside."},
-        {"stata": "* ---- Epidemic scale: early Gulu 2000 outbreak ----\n"
-                  "clear\nset seed 43210\nset obs 50          // first 50 days from ~Aug 30\n"
-                  "gen day = _n\n"
-                  "gen gulu_cases = 3*exp(0.046*day) + rnormal(0,2)\n"
-                  "replace gulu_cases = 0 if gulu_cases < 0\n"
-                  "replace gulu_cases = round(gulu_cases)\n"
-                  "nl (gulu_cases = {a=3}*exp({b=0.05}*day))\n"
-                  "nlcom (gulu_doubling_time: ln(2) / _b[/b])",
-         "output": fit_table("gulu_cases", FIT_GULU) + "\n\n" +
-                   fit_simple_row("gulu_doubling_time", dt_g, dtg_lo, dtg_hi),
+        {"stata": "* ---- Epidemic scale: Gulu 2000, with a 30-day forward forecast ----\n"
+                  "clear\nset seed 43210\nset obs 61\n"
+                  "gen day = _n - 31                      // -30 (history) to +30 (forecast)\n"
+                  "scalar b_rate = ln(2)/15.6             // 15.6-day doubling baked in\n\n"
+                  "* True trend, then split into observed history and forecast\n"
+                  "gen true_trend = 900*exp(b_rate*day)\n"
+                  "gen history_cases  = round(true_trend + rnormal(0,20)) if day <= 0\n"
+                  "replace history_cases = 0 if history_cases < 0\n"
+                  "gen forecast_cases = round(true_trend + rnormal(0,50)) if day >= 0\n\n"
+                  "* History plus the forward forecast on the unchecked exponential path\n"
+                  "twoway (scatter history_cases day, mcolor(navy) msize(medium)) ///\n"
+                  "       (line true_trend day if day <= 0, lcolor(navy) lwidth(medthick)) ///\n"
+                  "       (scatter forecast_cases day, mcolor(cranberry) msize(small) msymbol(triangle)) ///\n"
+                  "       (line true_trend day if day >= 0, lcolor(cranberry) lwidth(thick) lpattern(dash)), ///\n"
+                  '    title("Ebola Case Trajectory & 30-Day Forward Forecast") ///\n'
+                  '    subtitle("Unchecked Outbreak | Doubling Time: 15.6 Days") ///\n'
+                  '    xtitle("Days (relative to today, Day 0)") ///\n'
+                  '    ytitle("Cumulative confirmed/suspected cases") ///\n'
+                  "    xline(0, lcolor(gs10) lpattern(dot)) xlabel(-30(10)30) ylabel(0(500)3500) ///\n"
+                  '    legend(order(1 "Observed history" 2 "Historical trend" ///\n'
+                  '                 3 "Projected forecast" 4 "Unchecked exponential path"))\n\n'
+                  "* Recover the growth rate (shift time so the search starts clean)\n"
+                  "gen combined_cases = history_cases\n"
+                  "replace combined_cases = forecast_cases if day > 0\n"
+                  "gen day_shifted = day + 30\n"
+                  "nl (combined_cases = {a=23}*exp({b=0.04}*day_shifted))\n"
+                  "nlcom (doubling_time: ln(2) / _b[/b])",
+         "output": fit_table("combined_cases", FIT_GULU) + "\n\n" +
+                   fit_simple_row("doubling_time", dt_g, dtg_lo, dtg_hi),
          "img": IMG_GULU,
-         "read": (f"Identical table shape, but now at the population scale. The fitted "
+         "read": (f"Same two-parameter exponential, now fit to the whole district. We shift time "
+                  f"(<code>day_shifted = day + 30</code>) so the search starts at a clean baseline "
+                  f"instead of negative days, which helps it converge. The fitted "
                   f"<b>b ≈ {b_g:.3f}/day</b> feeds straight into the doubling time of "
-                  f"≈ <b>{dt_g:.0f} days</b> printed beneath it. Same two numbers, same reading — "
-                  f"only the units changed, from copies/mL in one patient to cases across a district."),
-         "means": f"Now the <b>same model at the population scale</b> for the early phase of the "
-                  f"Gulu, Uganda outbreak (Sudan ebolavirus, 2000). The fitted rate "
-                  f"<b>b ≈ {b_g:.3f}/day</b> gives an <b>epidemic doubling time of ≈ {dt_g:.0f} "
-                  f"days</b>. Contrast that with the within-patient doubling of ~{dt_vl:.0f} days: "
-                  f"same maths, two scales.",
-         "ebola": f"This early, near-invisible exponential phase is where outbreaks are won or lost: "
-                  f"with cases doubling roughly every {dt_g:.0f} days, even a few weeks' delay in "
-                  f"detection means several doublings before the first major intervention.",
+                  f"≈ <b>{dt_g:.1f} days</b> beneath it. Read the two numbers and ignore the shift: "
+                  f"it moves <b>a</b> (the baseline count), never <b>b</b> (the growth rate)."),
+         "means": f"The <b>same model at the population scale</b> for the Gulu, Uganda outbreak "
+                  f"(Sudan ebolavirus, 2000), with 30 days of history projected 30 days forward. The "
+                  f"fitted rate <b>b ≈ {b_g:.3f}/day</b> gives an <b>epidemic doubling time of "
+                  f"≈ {dt_g:.1f} days</b>. The red dashed path is that same curve run forward, and "
+                  f"nothing bends it down on its own. Contrast the within-patient doubling of about "
+                  f"{dt_vl:.0f} days: same maths, two scales.",
+         "ebola": f"This early, near-invisible exponential phase is where outbreaks are won or lost. "
+                  f"With cases doubling about every {dt_g:.1f} days, every week you wait is another "
+                  f"doubling, so the count you act on tomorrow is twice the one you ignored last week.",
          "warn": "This is a <b>reconstructed, illustrative</b> trajectory for teaching the curve "
-                 "shape — not an exact case record of the outbreak."}]},
+                 "shape and the forecast logic, not an exact case record of the outbreak. A real "
+                 "forecast would also carry an uncertainty band."}]},
 
-    {"id": "compare", "title": "Linear vs non-linear — which wins?",
+    {"id": "compare", "title": "Linear vs non-linear: which wins?",
      "lead": "Fit both to the same auto data and let the numbers decide.",
      "blocks": [{
          "stata": "regress mpg weight\nestimates store linear_model\n"
@@ -587,20 +645,20 @@ SECTIONS = [
                   "estimates store nl_model\nestimates stats linear_model nl_model",
          "output": fixed_compare(AIC_LIN, SD_LIN, AIC_NL, SD_NL),
          "img": IMG_COMPARE,
-         "read": (f"Two models, one scorecard — so read <i>down</i> the columns, not across. "
+         "read": (f"Two models, one scorecard, so read <i>down</i> the columns, not across. "
                   f"<b>AIC</b>: lower wins, and the non-linear row ({AIC_NL:.1f}) beats the linear "
-                  f"one ({AIC_LIN:.1f}). <b>Residual SD</b> says the same in plain units — the "
+                  f"one ({AIC_LIN:.1f}). <b>Residual SD</b> says the same in plain units, the "
                   f"curve's typical miss ({SD_NL:.2f}) is smaller than the line's ({SD_LIN:.2f}). "
                   f"Neither row means anything alone; the <b>comparison between them</b> is the whole "
                   f"point."),
-         "means": f"<b>AIC</b> rewards fit and punishes complexity — <b>lower is better</b>. The "
+         "means": f"<b>AIC</b> rewards fit and punishes complexity, <b>lower is better</b>. The "
                   f"non-linear model wins here (AIC {AIC_NL:.1f} vs {AIC_LIN:.1f}; residual SD "
                   f"{SD_NL:.2f} vs {SD_LIN:.2f}), because the straight line can't follow the bend. "
                   f"The gain is modest, so interpretability matters too.",
-         "say": "Lower AIC wins. The curve beats the line — and tells a more interpretable story.",
+         "say": "Lower AIC wins. The curve beats the line, and tells a more interpretable story.",
          "warn": "Only compare AIC for models on the <b>same outcome and rows</b>."}]},
 
-    {"id": "diag", "title": "Diagnostic checklist — run after EVERY fit",
+    {"id": "diag", "title": "Diagnostic checklist: run after EVERY fit",
      "lead": "Six checks. The first is non-negotiable.",
      "blocks": [
         {"stata": "di e(converged)",
@@ -609,19 +667,19 @@ SECTIONS = [
                   "search settled on a stable answer; a <b>0</b> would void every coefficient you "
                   "read above it. So read this line <i>first</i>, before any estimate."),
          "means": "<code>e(converged)</code> is 1 if the search succeeded, 0 if it gave up. <b>If "
-                  "this isn't 1, stop</b> — every other number is unreliable.",
+                  "this isn't 1, stop</b>, every other number is unreliable.",
          "say": "First question, always: did it converge? One means yes."},
         {"stata": "rvfplot, yline(0)\nqnorm resid\nswilk resid       // p>0.05 = normal\n"
                   "predict cooksd, cooksd\nsummarize cooksd, detail\n"
                   "nl (...), initial(...) level(95)   // profile CIs for small n",
          "means": "Then: residuals-vs-fitted (no pattern), Q-Q + <b>Shapiro–Wilk</b> (here a "
-                  "<b>big</b> p-value is good — p&gt;0.05 means normal enough), Cook's distance for "
+                  "<b>big</b> p-value is good, p&gt;0.05 means normal enough), Cook's distance for "
                   "influence, and finally the human check: <b>do the estimates make clinical "
                   "sense?</b>",
-         "say": "Patternless residuals, points on the line, no single point dominating — and numbers "
+         "say": "Patternless residuals, points on the line, no single point dominating, and numbers "
                 "that make sense for a real patient."}]},
 
-    {"id": "errors", "title": "Common Stata errors — and the fix",
+    {"id": "errors", "title": "Common Stata errors, and the fix",
      "lead": "Non-linear fits fail in a handful of predictable ways.",
      "html": '<table class="grid"><tr><th>Message</th><th>Cause</th><th>Fix</th></tr>'
              '<tr><td>“could not calculate numerical derivatives”</td><td>Poor starting values</td>'
@@ -637,29 +695,29 @@ SECTIONS = [
      "blocks": []},
 
     {"id": "debug", "title": "When it won't converge",
-     "lead": "The most common failure — and the cures.",
+     "lead": "The most common failure, and the cures.",
      "blocks": [{
          "stata": "nl (y={a}*exp({b}*x)), initial(a 40 b -0.0005) trace\n"
                   "nl (...), initial(...) iterate(100)\n"
                   "nl (...), initial(...) technique(gn)",
-         "means": "<code>trace</code> prints the residual sum-of-squares each step — smoothly "
+         "means": "<code>trace</code> prints the residual sum-of-squares each step, smoothly "
                   "shrinking is healthy, bouncing means bad starting values. <code>iterate()</code> "
                   "and <code>technique(gn)</code> sometimes help, but nine times in ten the cure is "
                   "a <b>better starting guess read off the plot</b>.",
-         "say": "More iterations and a different algorithm occasionally help — but usually it's the "
+         "say": "More iterations and a different algorithm occasionally help, but usually it's the "
                 "starting values."}]},
 
-    {"id": "exercise", "title": "Hands-on exercise — infection rate vs bed occupancy",
+    {"id": "exercise", "title": "Hands-on exercise: infection rate vs bed occupancy",
      "icon": "🅿️",
      "eli5": "Picture <b>a car park filling up</b>. While it's half-empty, finding a space is easy "
-             "and stress stays low. Past a tipping point — say 75% full — it suddenly gets hard, "
+             "and stress stays low. Past a tipping point, say 75% full, it suddenly gets hard, "
              "tempers fray, and it climbs steeply toward gridlock. A hospital ward behaves the same "
              "as it fills: infections stay flat and safe for a while, then rise sharply once "
-             "occupancy crosses a threshold. That's the logistic S-curve again — and your job is to "
+             "occupancy crosses a threshold. That's the logistic S-curve again, and your job is to "
              "<b>find that threshold</b>.",
      "lead": "You're studying hospital bed occupancy (%) and infection rate (per 1000 patient-days). "
              "Infections stay low until occupancy crosses a threshold, then rise sharply to a ceiling "
-             "— a logistic S-curve. Build it, fit it, interpret it.",
+             ",  a logistic S-curve. Build it, fit it, interpret it.",
      "blocks": [
         {"stata": "clear\nset seed 999\nset obs 30\n"
                   "gen occupancy = 40 + (_n-1)*(95-40)/29\n"
@@ -671,7 +729,7 @@ SECTIONS = [
          "means": "30 hospitals, occupancy 40→95%. True logistic: ceiling <b>12</b> infections / "
                   "1000 patient-days, threshold (inflection) at <b>75%</b>, growth rate 0.3.",
          "warn": "The deck's original formula used <code>exp(0.3*(occupancy-75))</code>, which makes "
-                 "the rate <i>fall</i> as wards fill — the opposite of the story. The minus sign "
+                 "the rate <i>fall</i> as wards fill, the opposite of the story. The minus sign "
                  "fixes it."},
         {"stata": "nl (infection_rate = {asym}/(1+exp(-{rate_g}*(occupancy-{inflect})))), ///\n"
                   "    initial(asym 12 rate_g 0.3 inflect 75)\n"
@@ -681,15 +739,15 @@ SECTIONS = [
          "output": fit_table("infection_rate", FIT_EX),
          "read": (f"Now you read one unaided. <b>asym ≈ {FIT_EX['popt'][0]:.1f}</b> = the ceiling "
                   f"infection rate; <b>inflect ≈ {FIT_EX['popt'][2]:.1f}%</b> = the occupancy at "
-                  f"half-max — and for a logistic that inflection point <i>is</i> the danger "
+                  f"half-max, and for a logistic that inflection point <i>is</i> the danger "
                   f"threshold; <b>rate_g ≈ {FIT_EX['popt'][1]:.2f}</b> = the steepness. The one "
                   f"number that runs the ward is <b>inflect</b>: report it with its CI and you've "
                   f"answered the question."),
          "means": f"Really fitted: <b>asym ≈ {FIT_EX['popt'][0]:.1f}</b> = the ceiling rate; "
-                  f"<b>inflect ≈ {FIT_EX['popt'][2]:.1f}%</b> = the occupancy at half-maximum — and "
+                  f"<b>inflect ≈ {FIT_EX['popt'][2]:.1f}%</b> = the occupancy at half-maximum, and "
                   f"for a logistic the inflection point <b>is</b> the EC50; <b>rate_g ≈ "
                   f"{FIT_EX['popt'][1]:.2f}</b> = steepness.",
-         "say": f"The model nails the danger threshold at ~{ec50_ex:.0f}% occupancy — the number "
+         "say": f"The model nails the danger threshold at ~{ec50_ex:.0f}% occupancy, the number "
                 f"that changes how you run the ward."},
         {"stata": '* Report the threshold with a 95% CI\n'
                   'di "Occupancy at 50% max: " _b[/inflect] " (95% CI: " ///\n'
@@ -703,7 +761,7 @@ SECTIONS = [
                   "converge? (adjust starting values, use <code>trace</code>, simplify).",
          "say": "Below ~75% you're safe; above it, infections take off. That's the policy line."}]},
 
-    {"id": "cmds", "title": "Applied Stata commands — quick reference",
+    {"id": "cmds", "title": "Applied Stata commands: quick reference",
      "lead": "The whole toolkit on one screen.",
      "html": '<table class="grid"><tr><th>Task</th><th>Command</th></tr>'
              '<tr><td>Exponential decay</td><td><code>nl (y={a}*exp({b}*x)), initial(a 10 b -0.1)</code></td></tr>'
@@ -716,15 +774,15 @@ SECTIONS = [
              '<tr><td>Check convergence</td><td><code>di e(converged)</code></td></tr></table>',
      "blocks": []},
 
-    {"id": "summary", "title": "Summary — the seven things to remember",
+    {"id": "summary", "title": "Summary: the seven things to remember",
      "lead": "",
      "html": '<table class="grid"><tr><th>#</th><th>Takeaway</th></tr>'
              '<tr><td>1</td><td>Non-linear models give <b>clinically meaningful parameters</b> '
              '(ceiling, rate, EC50, half-life).</td></tr>'
-             '<tr><td>2</td><td><b>Always plot first</b> — the shape tells you which model.</td></tr>'
-             '<tr><td>3</td><td><b>Starting values matter</b> — guess from the plot, then refine.</td></tr>'
-             '<tr><td>4</td><td><b>Check convergence</b> — <code>e(converged)</code> must be 1.</td></tr>'
-             '<tr><td>5</td><td><b>Diagnose residuals</b> — rvfplot, qnorm, Cook\'s D.</td></tr>'
+             '<tr><td>2</td><td><b>Always plot first</b>, the shape tells you which model.</td></tr>'
+             '<tr><td>3</td><td><b>Starting values matter</b>, guess from the plot, then refine.</td></tr>'
+             '<tr><td>4</td><td><b>Check convergence</b>, <code>e(converged)</code> must be 1.</td></tr>'
+             '<tr><td>5</td><td><b>Diagnose residuals</b>, rvfplot, qnorm, Cook\'s D.</td></tr>'
              '<tr><td>6</td><td><b>Report parameters with interpretation</b>, not just numbers.</td></tr>'
              '<tr><td>7</td><td>Four go-to shapes: decay, growth, Michaelis-Menten, logistic.</td></tr></table>',
      "blocks": []},
@@ -738,12 +796,12 @@ SECTIONS = [
 
 GLOSSARY = [
     ("Coefficient", "The estimated value of a parameter (a, b, vmax …). In non-linear models each "
-                    "has a real-world meaning — a ceiling, a rate, a midpoint."),
+                    "has a real-world meaning, a ceiling, a rate, a midpoint."),
     ("Std. err.", "How much the estimate would wobble across repeated samples. Smaller = more precise."),
     ("P>|t|", "Probability of the estimate if the true value were zero. <0.05 = significant. "
               "(Exception: in normality tests like Shapiro–Wilk you WANT p>0.05.)"),
     ("[95% conf. int.]", "Plausible range for the true value. Narrow = precise; excludes zero = significant."),
-    ("yhat / fitted", "The model's predicted value for each row — points on the fitted curve."),
+    ("yhat / fitted", "The model's predicted value for each row, points on the fitted curve."),
     ("resid (residual)", "Actual − predicted. Good residuals are small, patternless and bell-shaped."),
     ("e(converged)", "1 = the search found a stable answer; 0 = it failed. Must be 1 first."),
     ("AIC", "Model-comparison score that rewards fit and punishes complexity. Lower is better; "
@@ -751,11 +809,11 @@ GLOSSARY = [
     ("Cook's distance", "How much one data point moves the whole fit. Above 4/n = influential."),
     ("nlcom", "Computes a NEW quantity from fitted parameters (half-life, doubling time, EC50) "
               "with a correct CI."),
-    ("Half-life / doubling time", "ln(2)/rate — the change that halves (decay) or doubles (growth) "
+    ("Half-life / doubling time", "ln(2)/rate, the change that halves (decay) or doubles (growth) "
                                   "the outcome. The clinically intuitive translation of the rate."),
     ("EC50", "The dose (or level) giving half the maximum effect. In Michaelis–Menten it's Km; in a "
              "logistic it's the inflection point."),
-    ("initial()", "Your starting guesses. The biggest cause of — and cure for — convergence problems."),
+    ("initial()", "Your starting guesses. The biggest cause of, and cure for, convergence problems."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -776,10 +834,10 @@ def render_block(b):
     if has_result:
         p.append('<div class="result" hidden>')
         if b.get("output"):
-            p.append('<div class="label">📋 Output — real least-squares fit (computed in Python)</div>')
+            p.append('<div class="label">📋 Output, real least-squares fit (computed in Python)</div>')
             p.append(f'<pre class="output">{esc(b["output"])}</pre>')
         if b.get("img"):
-            p.append('<div class="label">📈 Graph — generated from the data</div>')
+            p.append('<div class="label">📈 Graph, generated from the data</div>')
             p.append(f'<img class="plot-img" src="{b["img"]}" alt="plot">')
         if b.get("read"):
             p.append('<div class="callout read"><span class="tag">📖 Read the output</span>'
@@ -793,9 +851,6 @@ def render_block(b):
     if b.get("ebola"):
         p.append('<div class="callout ebola"><span class="tag">🦠 Outbreak lens</span>'
                  f'<div>{b["ebola"]}</div></div>')
-    if b.get("say"):
-        p.append('<div class="callout say"><span class="tag">🗣️ Say this</span>'
-                 f'<div>{b["say"]}</div></div>')
     if b.get("warn"):
         p.append('<div class="callout warn"><span class="tag">⚠️ Watch out</span>'
                  f'<div>{b["warn"]}</div></div>')
@@ -805,6 +860,9 @@ def render_block(b):
 
 def render_section(s):
     intro = [f'<h2>{s["title"]}</h2>']
+    if s.get("why"):
+        intro.append('<div class="callout why"><span class="tag">🎯 What this is &amp; why it matters</span>'
+                     f'<div>{s["why"]}</div></div>')
     if s.get("eli5"):
         ico = s.get("icon")
         ico_html = f'<div class="eli5-ico" aria-hidden="true">{ico}</div>' if ico else ''
@@ -831,7 +889,7 @@ def render_toc():
 def render_glossary():
     rows = "".join(f'<tr><td><b>{esc(t)}</b></td><td>{esc(d)}</td></tr>' for t, d in GLOSSARY)
     return ('<section id="glossary"><div class="slide intro">'
-            '<h2>Output glossary — every term, plain English</h2>'
+            '<h2>Output glossary: every term, plain English</h2>'
             f'<table class="grid">{rows}</table></div></section>')
 
 
@@ -874,6 +932,7 @@ pre.output{background:var(--term-bg);color:var(--term-ink);}
 .clin{background:var(--clin-bg);border-left:4px solid var(--clin);} .clin .tag{color:var(--clin);}
 .ebola{background:var(--ebola-bg);border-left:4px solid var(--ebola);} .ebola .tag{color:var(--ebola);}
 .read{background:var(--read-bg);border-left:4px solid var(--read);} .read .tag{color:var(--read);}
+.why{background:var(--means-bg);border-left:4px solid var(--means);margin:6px 0 14px;} .why .tag{color:var(--means);}
 .eli5{display:flex;align-items:center;gap:16px;background:var(--eli-bg);border:1px solid var(--eli);
   border-left:5px solid var(--eli);border-radius:8px;padding:13px 17px;margin:8px 0 14px;
   font-size:15.5px;line-height:1.55;}
@@ -951,25 +1010,25 @@ table.grid th{background:var(--code-bg);}
 PAGE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Applied Non-Linear Regression — Stata Companion</title>
+<title>Applied Non-Linear Regression, Stata Companion</title>
 <style>{css}</style></head>
 <body><div class="wrap">
   <header>
-    <h1>Applied Non-Linear Regression — Companion</h1>
+    <h1>Applied Non-Linear Regression, Companion</h1>
     <p>Mirrors the slide deck, step by step. Presenter: Dr. Christine Atuhairwe · Faculty of Health Sciences.</p>
   </header>
   <div class="banner">
     <b>How to use this page:</b> each code block has a <b><span class="ico">&#9654;</span> Run</b>
-    button — click it to reveal that command's output and graph, as if you'd run it live in Stata,
+    button, click it to reveal that command's output and graph, as if you'd run it live in Stata,
     then read the <b>📖 Read the output</b> note to see what the numbers actually say. Teaching live?
     Keep them hidden and reveal one at a time. Reading on your own?
     <button id="revealAll" class="reveal-all" type="button" onclick="toggleAll()">Reveal all outputs</button>
     <button id="presentBtn" class="present-btn" type="button" onclick="enterPresent()">▶ Present (slides)</button>
-    <br><span style="font-size:13px">Present mode shows <b>one concept per slide</b> — navigate with
+    <br><span style="font-size:13px">Present mode shows <b>one concept per slide</b>, navigate with
     the on-screen arrows or your keyboard (← →, Esc to exit). Run buttons still work on each slide.</span>
     <br><br>
     <b>About the numbers:</b> every coefficient table below is a <b>real least-squares fit</b>
-    computed in Python (<code>scipy.curve_fit</code>) — on the public <code>auto-mpg.csv</code>
+    computed in Python (<code>scipy.curve_fit</code>), on the public <code>auto-mpg.csv</code>
     (UCI, 398 cars) and on seeded simulations. Your do-file fits the same models in Stata with
     <code>nl</code>; the <i>shape and interpretation</i> are identical, but exact figures differ
     (Stata's built-in <code>sysuse auto</code> has only 74 cars, and simulations vary with the
