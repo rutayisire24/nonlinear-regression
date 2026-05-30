@@ -2,10 +2,73 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0; url=nonlinear_regression_companion.html">
-<title>Non-Linear Regression — Stata Companion</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stata Companions — Dr. Christine Atuhairwe</title>
+<style>
+:root{
+  --ink:#1f2328; --muted:#6a737d; --line:#d0d7de; --bg:#f6f8fa; --card:#fff;
+  --means:#0969da; --means-bg:#ddf4ff; --prac:#8250df; --prac-bg:#f3eefb;
+}
+*{box-sizing:border-box;}
+body{margin:0;font:16px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+     color:var(--ink);background:var(--bg);}
+.wrap{max-width:880px;margin:0 auto;padding:0 24px 80px;}
+header{padding:44px 0 8px;border-bottom:2px solid var(--line);margin-bottom:28px;}
+header h1{margin:0 0 6px;font-size:30px;}
+header p{margin:0;color:var(--muted);}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px;
+      margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.05);text-decoration:none;color:inherit;
+      display:block;transition:box-shadow .15s,transform .15s;}
+a.card:hover{box-shadow:0 4px 14px rgba(0,0,0,.10);transform:translateY(-2px);}
+.tag{display:inline-block;font-size:12px;font-weight:700;text-transform:uppercase;
+     letter-spacing:.04em;padding:2px 9px;border-radius:999px;margin-bottom:8px;}
+.tag.live{background:var(--means-bg);color:var(--means);}
+.card h2{margin:4px 0 6px;font-size:21px;}
+.card p{margin:0 0 10px;color:var(--muted);}
+.meta{font-size:13.5px;color:var(--muted);}
+.meta code{background:var(--bg);border:1px solid var(--line);padding:1px 6px;border-radius:5px;
+           font:12.5px "SF Mono",Consolas,monospace;}
+.go{color:var(--means);font-weight:600;font-size:14.5px;}
+.note{font-size:14px;color:var(--muted);margin-top:26px;padding:14px 16px;background:var(--prac-bg);
+      border-left:4px solid var(--prac);border-radius:8px;}
+footer{margin-top:36px;color:var(--muted);font-size:13px;text-align:center;}
+</style>
 </head>
 <body>
-<p>Redirecting to the <a href="nonlinear_regression_companion.html">Non-Linear Regression companion</a>…</p>
+<div class="wrap">
+  <header>
+    <h1>Stata Companions for Clinical Research</h1>
+    <p>Self-contained, scroll-through guides — concept, real output, plain meaning. Presenter: Dr. Christine Atuhairwe.</p>
+  </header>
+
+  <a class="card" href="descriptives_distributions_companion.html">
+    <span class="tag live">Ready</span>
+    <h2>1 · Descriptive Statistics &amp; Distributions</h2>
+    <p>Mean vs median, SD &amp; reference ranges, skew &amp; the log fix, histograms, boxplots,
+       Q–Q + Shapiro–Wilk, frequencies, and describing by group. Every number computed live
+       from a 200-patient cohort.</p>
+    <div class="meta">Practice file: <code>descriptives_practice.do</code> · Data: <code>clinical_cohort.csv</code></div>
+    <p style="margin-top:10px"><span class="go">Open the companion →</span></p>
+  </a>
+
+  <a class="card" href="nonlinear_regression_companion.html">
+    <span class="tag live">Ready</span>
+    <h2>2 · Non-Linear Regression</h2>
+    <p>Mirrors the lecture slides: plot → guess → fit → check. Exponential decay/growth, logistic
+       S-curves, Michaelis–Menten, model comparison, diagnostics, and a hands-on exercise — with
+       real computed fits and an Ebola viral-load / Gulu 2000 outbreak example.</p>
+    <div class="meta">Practice file: <code>nonlinear_regression.do</code></div>
+    <p style="margin-top:10px"><span class="go">Open the companion →</span></p>
+  </a>
+
+  <div class="note">
+    <b>How to use these in teaching:</b> walk the group through the companion first so the
+    statistics land (no Stata required — just scroll). Then open the matching <code>.do</code>
+    file and run it section by section. The companion's purple boxes name the exact commands the
+    do-file runs, so the two stay in lock-step.
+  </div>
+
+  <footer>Open any companion in a browser — no internet, no server, no install needed.</footer>
+</div>
 </body>
 </html>
